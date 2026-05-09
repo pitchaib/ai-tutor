@@ -1,0 +1,15 @@
+# Tamil TTS (IndicF5) — shared settings for services and CLI
+
+model_name: ai4bharat/IndicF5
+device: auto
+# Target sample rate for saved/output audio (model native is 24000; we resample if different)
+sample_rate: 16000
+output_dir: outputs/
+cache_dir: model_cache/
+
+# Default reference prompt for Tamil (IndicF5 is prompt-based; see HF Space examples)
+default_ta_ref_audio: prompts/TAM_F_HAPPY_00001.wav
+default_ta_ref_text: "நான் நெனச்ச மாதிரியே அமேசான்ல பெரிய தள்ளுபடி வந்திருக்கு. கம்மி காசுக்கே அந்தப் புது சேம்சங் மாடல வாங்கிடலாம்."
+
+# Fallback URL if the file is not present in the cached HF snapshot (some hub revisions list fewer prompts)
+prompt_download_base: "https://github.com/AI4Bharat/IndicF5/raw/refs/heads/main/prompts"

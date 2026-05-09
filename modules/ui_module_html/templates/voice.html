@@ -1,0 +1,920 @@
+{% extends "_layout.html" %}
+
+{% block title %}AI Tutor — Voice-first Learning{% endblock %}
+
+{% block extra_styles %}
+    .wave {
+      display:inline-flex; align-items:flex-end; gap:4px; height:32px;
+    }
+    .wave span {
+      display:inline-block; width:4px; background: linear-gradient(180deg, #3b6ff0, #38bdf8);
+      border-radius: 2px; animation: waveAnim 1.2s infinite ease-in-out;
+    }
+    .wave span:nth-child(1){ animation-delay: 0s;    height:40%; }
+    .wave span:nth-child(2){ animation-delay: 0.15s; height:70%; }
+    .wave span:nth-child(3){ animation-delay: 0.3s;  height:90%; }
+    .wave span:nth-child(4){ animation-delay: 0.45s; height:60%; }
+    .wave span:nth-child(5){ animation-delay: 0.6s;  height:80%; }
+    @keyframes waveAnim { 0%,100%{transform:scaleY(0.4);} 50%{transform:scaleY(1);} }
+
+    .mode-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .mode-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(35,86,216,0.14);
+      border-color: #c7d8fc;
+    }
+    .mode-card.is-active {
+      border-color: #3b6ff0;
+      box-shadow: 0 16px 40px rgba(35,86,216,0.18);
+    }
+    .mode-card.is-active .mode-btn {
+      background: linear-gradient(135deg, #1a41b8, #2356d8);
+    }
+
+    /* In-page panels (Listen + Tutor share this collapse behaviour) */
+    .mode-panel {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: max-height 0.4s ease, opacity 0.25s ease, transform 0.25s ease;
+    }
+    .mode-panel.open {
+      max-height: 4000px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.75rem; margin-bottom: 0.75rem;
+    }
+
+    /* Markdown rendering (rules shared between Listen transcript + Tutor log) */
+    .md h1, .md h2, .md h3 { font-family: 'Outfit', sans-serif; font-weight: 700; color: #0f172a; }
+    .md h1 { font-size: 1.35rem; margin: 1.25rem 0 0.5rem; }
+    .md h2 { font-size: 1.15rem; margin: 1rem 0 0.5rem; }
+    .md h3 { font-size: 1rem;    margin: 0.75rem 0 0.35rem; }
+    .md p  { margin: 0.5rem 0; color: #1f2937; line-height: 1.7; }
+    .md ul, .md ol { margin: 0.5rem 0 0.5rem 1.25rem; color: #1f2937; }
+    .md li { margin: 0.2rem 0; }
+    .md strong { color: #0f172a; }
+    .md code  { background: #f1f5f9; padding: 0 4px; border-radius: 4px; font-size: 0.92em; }
+    .md em    { color: #334155; }
+
+    /* Listen language pill */
+    .lang-pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid rgba(0,0,0,0.08);
+      color: #475569;
+      background: #fff;
+      transition: all 0.15s ease;
+    }
+    .lang-pill.active {
+      background: linear-gradient(135deg, #2356d8, #3b6ff0);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 6px 18px rgba(35,86,216,0.25);
+    }
+    .lang-pill:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Section list */
+    .sec-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      background: #fff;
+    }
+    .sec-item:hover { border-color: #c7d8fc; background: #f8fbff; }
+    .sec-item.active {
+      border-color: #3b6ff0;
+      background: #eef4ff;
+      box-shadow: inset 0 0 0 1px #3b6ff0;
+    }
+
+    /* Tutor log bubbles */
+    .bubble {
+      border-radius: 1rem;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      line-height: 1.55;
+      font-size: 0.92rem;
+      max-width: 96%;
+    }
+    .bubble-tutor   { background: #eef4ff; color: #0f2360; border: 1px solid #d9e7ff; }
+    .bubble-student { background: #fef3c7; color: #78350f; border: 1px solid #fde68a; margin-left: auto; }
+    .bubble-eval    { background: #ecfccb; color: #365314; border: 1px solid #d9f99d; }
+    .bubble-err     { background: #fee2e2; color: #7f1d1d; border: 1px solid #fecaca; }
+
+    .rec-dot {
+      display:inline-block; width:10px; height:10px; border-radius:50%; background:#ef4444;
+      margin-right:6px; animation: pulse 1.1s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+    /* Ask/Answer button pulses red while the mic is hot. */
+    #tutor-ask.is-recording {
+      background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+      animation: askRecPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes askRecPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+      70%  { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    /* Toast / flash */
+    .flash {
+      position: fixed; top: 1.25rem; right: 1.25rem; z-index: 60;
+      background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 10px;
+      font-size: 0.85rem; box-shadow: 0 10px 30px rgba(15,23,42,0.25);
+      opacity: 0; transform: translateY(-6px); transition: all 0.2s ease;
+    }
+    .flash.show { opacity: 1; transform: translateY(0); }
+    .flash.err  { background: #7f1d1d; }
+{% endblock %}
+
+{% block content %}
+
+  <!-- Header -->
+  <section class="animate-fade-up">
+    <div class="flex items-center gap-3 text-sm text-gray-500 mb-2">
+      <a href="/welcome" class="hover:text-brand-600">← Back to home</a>
+      <span class="text-gray-300">/</span>
+      <span class="text-gray-700 font-semibold">Voice-first</span>
+    </div>
+
+    <div class="bg-gradient-to-br from-brand-900 via-brand-700 to-sky-500 rounded-3xl px-8 py-10 sm:px-12 text-white relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full translate-x-24 -translate-y-24"></div>
+      <div class="relative z-10">
+        <div class="flex items-center gap-4 mb-3">
+          <span class="text-4xl">🎧</span>
+          <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-tight mb-2">Voice-first Learning</h1>
+        <p class="text-blue-100 text-base max-w-2xl leading-relaxed">
+          Put on your headphones. The AI tutor will read the lesson aloud in your language, pause to ask questions, and evaluate your spoken answers in real-time.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Two service cards: Listen + Tutor -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-up-2">
+
+    <div id="card-listen" class="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm mode-card">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-xl bg-brand-50 flex items-center justify-center text-2xl">🔊</div>
+        <div>
+          <h2 class="font-display text-xl font-bold text-gray-900">Listen</h2>
+          <p class="text-xs text-gray-500 font-semibold uppercase tracking-wider">Voice playback</p>
+        </div>
+      </div>
+      <p class="text-gray-600 text-sm leading-relaxed mb-5">
+        The tutor reads the entire page explanation aloud — like an audiobook, at your pace. Great when you want to <span class="font-semibold text-gray-800">absorb the concept</span> without interruption.
+      </p>
+      <ul class="text-sm text-gray-600 space-y-1.5 mb-6">
+        <li class="flex gap-2"><span class="text-brand-600">✓</span> Natural-sounding TTS in English &amp; Tamil</li>
+        <li class="flex gap-2"><span class="text-brand-600">✓</span> Page-by-page playback</li>
+        <li class="flex gap-2"><span class="text-brand-600">✓</span> No microphone needed</li>
+      </ul>
+      <button type="button" data-mode="listen"
+              class="mode-btn btn-primary w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-display font-bold text-white text-sm shadow">
+        <span class="btn-label">Open Listen Mode</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="card-tutor" class="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm mode-card">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-xl bg-brand-50 flex items-center justify-center text-2xl">🎙️</div>
+        <div>
+          <h2 class="font-display text-xl font-bold text-gray-900">Tutor Mode</h2>
+          <p class="text-xs text-gray-500 font-semibold uppercase tracking-wider">Interactive Q&amp;A</p>
+        </div>
+      </div>
+      <p class="text-gray-600 text-sm leading-relaxed mb-5">
+        The tutor teaches a chunk, then <span class="font-semibold text-gray-800">pauses and asks you a question</span>. You answer by speaking — the tutor evaluates and moves on.
+      </p>
+      <ul class="text-sm text-gray-600 space-y-1.5 mb-6">
+        <li class="flex gap-2"><span class="text-brand-600">✓</span> Start / Pause / Resume control</li>
+        <li class="flex gap-2"><span class="text-brand-600">✓</span> Answer by voice (ASR in en-US, ta-IN)</li>
+        <li class="flex gap-2"><span class="text-brand-600">✓</span> Instant evaluation + feedback</li>
+      </ul>
+      <button type="button" data-mode="tutor"
+              class="mode-btn btn-primary w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-display font-bold text-white text-sm shadow">
+        <span class="btn-label">Open Tutor Mode</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── Listen Panel ─────────────────────────── -->
+  <section id="listen-panel" class="mode-panel animate-fade-up-3" aria-hidden="true">
+    <div class="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm">
+      <div class="panel-header">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-xl">🔊</div>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gray-900">Listen Mode</h3>
+            <p class="text-xs text-gray-500" id="listen-chapter">Loading chapter…</p>
+          </div>
+        </div>
+        <button type="button" data-close="listen"
+                class="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Close
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Left: section list -->
+        <div class="lg:col-span-1">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="font-display font-bold text-gray-800 text-sm">Sections</h4>
+            <span class="text-xs text-gray-500" id="listen-progress">—</span>
+          </div>
+          <div id="listen-sections" class="space-y-2 max-h-[540px] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Right: player + transcript -->
+        <div class="lg:col-span-2">
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <span class="text-xs font-semibold text-gray-500 mr-1">Language:</span>
+            <button type="button" class="lang-pill active" data-lang="english">English</button>
+            <button type="button" class="lang-pill" data-lang="tamil">தமிழ்</button>
+
+            <div class="ml-auto flex items-center gap-2">
+              <button type="button" id="listen-prev"
+                      class="text-sm font-semibold text-brand-700 hover:bg-brand-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                ← Previous
+              </button>
+              <button type="button" id="listen-next"
+                      class="text-sm font-semibold text-brand-700 hover:bg-brand-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                Next →
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span id="listen-title" class="font-display font-bold text-gray-900 text-sm">—</span>
+              <label class="text-xs text-gray-500 flex items-center gap-1">
+                <input type="checkbox" id="listen-autonext" class="accent-brand-600">
+                Auto-play next section
+              </label>
+            </div>
+            <audio id="listen-audio" controls preload="metadata" class="w-full"></audio>
+          </div>
+
+          <div class="bg-white border border-gray-100 rounded-xl p-4">
+            <h5 class="font-display font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">Transcript</h5>
+            <div id="listen-transcript" class="md text-sm leading-relaxed">
+              <p class="text-gray-400 italic">Select a section to see the tutor's explanation here.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── Tutor Panel ─────────────────────────── -->
+  <section id="tutor-panel" class="mode-panel animate-fade-up-3" aria-hidden="true">
+    <div class="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm">
+      <div class="panel-header">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-xl">🎙️</div>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gray-900">Tutor Mode</h3>
+            <p class="text-xs text-gray-500" id="tutor-status-line">Not started yet</p>
+          </div>
+        </div>
+        <button type="button" data-close="tutor"
+                class="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Close
+        </button>
+      </div>
+
+      <!-- Controls row -->
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <label class="text-xs font-semibold text-gray-500">Answer language</label>
+        <select id="tutor-language" class="text-sm border border-gray-200 rounded-md px-2 py-1.5">
+          <option>English</option>
+          <option>Tamil</option>
+        </select>
+
+        <label class="text-xs font-semibold text-gray-500 ml-2">Your speech</label>
+        <select id="tutor-asr-language" class="text-sm border border-gray-200 rounded-md px-2 py-1.5">
+          <option>English</option>
+          <option>Tamil</option>
+        </select>
+
+        <div class="ml-auto flex items-center gap-2">
+          <button type="button" id="tutor-start"
+                  class="btn-primary text-white text-sm font-semibold px-4 py-2 rounded-lg shadow">
+            Start Lesson
+          </button>
+          <button type="button" id="tutor-pause" disabled
+                  class="text-sm font-semibold text-brand-700 hover:bg-brand-50 px-4 py-2 rounded-lg border border-gray-200 disabled:opacity-50">
+            Pause
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Left: recorder + audio -->
+        <div class="lg:col-span-1 space-y-4">
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <h5 class="font-display font-bold text-gray-800 text-xs uppercase tracking-wider mb-3">Tutor voice</h5>
+            <audio id="tutor-audio" controls autoplay class="w-full"></audio>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <h5 class="font-display font-bold text-gray-800 text-xs uppercase tracking-wider mb-3">Your turn</h5>
+            <!-- Unified Ask/Answer button: tap once to speak, tap again to send.
+                 The tutor audio is stopped automatically when the student taps. -->
+            <div class="flex items-center gap-2 mb-3">
+              <button type="button" id="tutor-ask" disabled
+                      class="btn-primary text-white text-sm font-semibold px-4 py-2 rounded-lg shadow disabled:opacity-50 inline-flex items-center gap-2">
+                <span id="tutor-ask-icon">🎤</span>
+                <span id="tutor-ask-label">Ask / Answer</span>
+              </button>
+              <button type="button" id="tutor-cancel" class="hidden text-xs font-semibold text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg border border-gray-200">
+                ✕ Cancel
+              </button>
+            </div>
+            <p class="text-xs text-gray-500" id="tutor-mic-status">Click <span class="font-semibold">Start Lesson</span> first.</p>
+            <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
+              Use the same button whether the tutor asked you a question OR you want to ask your own doubt. Tapping stops the tutor audio so you can speak.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right: transcript log -->
+        <div class="lg:col-span-2">
+          <h5 class="font-display font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">Conversation</h5>
+          <div id="tutor-log" class="max-h-[620px] overflow-y-auto pr-1 space-y-2">
+            <p class="text-gray-400 italic text-sm">The tutor's voice and your answers will appear here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tip -->
+  <section class="animate-fade-up-3">
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
+      <span class="text-2xl">💡</span>
+      <div>
+        <p class="font-display font-bold text-amber-900 text-sm">Tip: Allow microphone access</p>
+        <p class="text-amber-800 text-sm mt-1">When you open <span class="font-semibold">Tutor Mode</span>, the browser will ask for microphone permission. Click <span class="font-semibold">Allow</span> so the tutor can hear your spoken answers.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="flash" class="flash"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script>
+  (function () {
+    // ── Shared helpers ──────────────────────────────────────────────────
+    const $ = (s, el = document) => el.querySelector(s);
+    const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+    const flash = (msg, isErr = false, ms = 3000) => {
+      const el = $('#flash');
+      el.textContent = msg;
+      el.classList.toggle('err', isErr);
+      el.classList.add('show');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), ms);
+    };
+
+    const renderMd = (txt) => {
+      if (!txt) return '';
+      try {
+        const html = marked.parse(txt, { breaks: true });
+        return DOMPurify.sanitize(html);
+      } catch (e) {
+        return DOMPurify.sanitize(txt);
+      }
+    };
+
+    // ── Panel controller (Listen vs Tutor; only one open at a time) ─────
+    const cards  = { listen: $('#card-listen'), tutor: $('#card-tutor') };
+    const panels = { listen: $('#listen-panel'), tutor: $('#tutor-panel') };
+    let current = null;
+
+    const setCardState = (mode, active) => {
+      const btn = cards[mode];
+      const label = btn.querySelector('.btn-label');
+      label.textContent = active
+        ? (mode === 'listen' ? 'Close Listen Mode' : 'Close Tutor Mode')
+        : (mode === 'listen' ? 'Open Listen Mode'  : 'Open Tutor Mode');
+      btn.classList.toggle('is-active', !!active);
+    };
+
+    const openPanel = (mode) => {
+      if (!panels[mode]) return;
+      if (current === mode) { closePanel(); return; }
+      if (current) closePanel({ silent: true });
+
+      panels[mode].classList.add('open');
+      panels[mode].setAttribute('aria-hidden', 'false');
+      current = mode;
+      setCardState(mode, true);
+
+      if (mode === 'listen') Listen.onOpen();
+      if (mode === 'tutor')  Tutor.onOpen();
+
+      requestAnimationFrame(() => panels[mode].scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    };
+
+    const closePanel = ({ silent = false } = {}) => {
+      if (!current) return;
+      if (current === 'listen') Listen.onClose();
+      if (current === 'tutor')  Tutor.onClose();
+      panels[current].classList.remove('open');
+      panels[current].setAttribute('aria-hidden', 'true');
+      setCardState(current, false);
+      const was = current;
+      current = null;
+      if (!silent) flash(was === 'listen' ? 'Listen Mode closed' : 'Tutor Mode closed');
+    };
+
+    $$('.mode-btn').forEach((b) => b.addEventListener('click', () => openPanel(b.dataset.mode)));
+    $$('[data-close]').forEach((b) => b.addEventListener('click', closePanel));
+
+    // ── Listen Mode ─────────────────────────────────────────────────────
+    const Listen = (() => {
+      let sections = [];
+      let activeId = null;
+      let lang = localStorage.getItem('aitutor.listen.lang') || 'english';
+      const audioEl   = $('#listen-audio');
+      const titleEl   = $('#listen-title');
+      const transEl   = $('#listen-transcript');
+      const listEl    = $('#listen-sections');
+      const chapterEl = $('#listen-chapter');
+      const progEl    = $('#listen-progress');
+      const autoNext  = $('#listen-autonext');
+      let loaded = false;
+
+      const applyLangPillUI = () => {
+        $$('[data-lang]').forEach((p) => p.classList.toggle('active', p.dataset.lang === lang));
+      };
+
+      const load = async () => {
+        if (loaded) return;
+        try {
+          const res = await fetch('/api/listen/session');
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          sections = data.sections || [];
+          chapterEl.textContent = data.chapter + ` · ${data.total_sections} sections`;
+          listEl.innerHTML = sections.map((s) => `
+            <div class="sec-item" data-sid="${s.section_id}">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-semibold text-sm text-gray-900">Section ${s.section_id} · Page ${s.page_no}</span>
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                  ${s.has_english ? 'EN' : ''}${s.has_english && s.has_tamil ? ' · ' : ''}${s.has_tamil ? 'தமிழ்' : ''}
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 line-clamp-2">${(s.preview || '').replace(/[<>]/g, '')}</p>
+            </div>
+          `).join('');
+          listEl.querySelectorAll('.sec-item').forEach((el) => {
+            el.addEventListener('click', () => select(parseInt(el.dataset.sid, 10)));
+          });
+          loaded = true;
+          const initial = parseInt(localStorage.getItem('aitutor.listen.sid') || '0', 10);
+          const first = (sections.find((s) => s.section_id === initial) || sections[0] || {}).section_id;
+          if (first) select(first, { autoplay: false });
+        } catch (e) {
+          flash('Could not load teaching_session.json', true);
+          listEl.innerHTML = `<p class="text-red-600 text-xs">${e.message || e}</p>`;
+        }
+      };
+
+      const select = async (sid, { autoplay = true } = {}) => {
+        if (!sid) return;
+        activeId = sid;
+        localStorage.setItem('aitutor.listen.sid', String(sid));
+        $$('.sec-item', listEl).forEach((el) => el.classList.toggle('active', parseInt(el.dataset.sid, 10) === sid));
+        const sec = sections.find((s) => s.section_id === sid) || {};
+        const effLang = (lang === 'tamil' && !sec.has_tamil) ? 'english'
+                      : (lang === 'english' && !sec.has_english) ? 'tamil'
+                      : lang;
+        if (effLang !== lang) {
+          lang = effLang;
+          localStorage.setItem('aitutor.listen.lang', lang);
+          applyLangPillUI();
+        }
+        titleEl.textContent = `Section ${sec.section_id} · Page ${sec.page_no}`;
+        progEl.textContent = `${sections.findIndex((s) => s.section_id === sid) + 1} / ${sections.length}`;
+        audioEl.src = `/api/listen/audio?section_id=${sid}&lang=${lang}`;
+        if (autoplay) audioEl.play().catch(() => {});
+        try {
+          const res = await fetch(`/api/listen/explanation?section_id=${sid}&lang=${lang}`);
+          if (res.ok) {
+            const data = await res.json();
+            transEl.innerHTML = renderMd(data.markdown) || '<p class="text-gray-400 italic">No transcript available.</p>';
+          } else {
+            transEl.innerHTML = '<p class="text-red-600 text-xs">Transcript unavailable.</p>';
+          }
+        } catch {
+          transEl.innerHTML = '<p class="text-red-600 text-xs">Transcript unavailable.</p>';
+        }
+      };
+
+      audioEl.addEventListener('ended', () => {
+        if (!autoNext.checked) return;
+        const i = sections.findIndex((s) => s.section_id === activeId);
+        if (i >= 0 && i < sections.length - 1) select(sections[i + 1].section_id);
+      });
+
+      $$('[data-lang]').forEach((p) => p.addEventListener('click', () => {
+        lang = p.dataset.lang;
+        localStorage.setItem('aitutor.listen.lang', lang);
+        applyLangPillUI();
+        if (activeId) select(activeId, { autoplay: !audioEl.paused });
+      }));
+
+      $('#listen-prev').addEventListener('click', () => {
+        const i = sections.findIndex((s) => s.section_id === activeId);
+        if (i > 0) select(sections[i - 1].section_id);
+      });
+      $('#listen-next').addEventListener('click', () => {
+        const i = sections.findIndex((s) => s.section_id === activeId);
+        if (i >= 0 && i < sections.length - 1) select(sections[i + 1].section_id);
+      });
+
+      applyLangPillUI();
+
+      return {
+        onOpen:  () => load(),
+        onClose: () => { audioEl.pause(); },
+      };
+    })();
+
+    // ── Tutor Mode ──────────────────────────────────────────────────────
+    // State machine: idle → recording → sending → idle
+    // Single unified "Ask / Answer" button drives the whole loop:
+    //   · tap in idle      → stop tutor audio + start mic
+    //   · tap in recording → stop mic AND auto-send to /api/tutor/step
+    //   · "✕ Cancel" shown only while recording: aborts without sending
+    const Tutor = (() => {
+      const audioEl    = $('#tutor-audio');
+      const logEl      = $('#tutor-log');
+      const startBtn   = $('#tutor-start');
+      const pauseBtn   = $('#tutor-pause');
+      const askBtn     = $('#tutor-ask');
+      const askIcon    = $('#tutor-ask-icon');
+      const askLabel   = $('#tutor-ask-label');
+      const cancelBtn  = $('#tutor-cancel');
+      const statusEl   = $('#tutor-status-line');
+      const micStatus  = $('#tutor-mic-status');
+      const langSel    = $('#tutor-language');
+      const asrSel     = $('#tutor-asr-language');
+
+      let sessionId = null;
+      let lessonMode = 'idle';   // server-reported lesson mode (greeting/narrating/waiting_for_answer/done)
+      let paused = false;
+
+      // Local mic state — independent from server-reported lessonMode.
+      // 'idle'       → awaiting student action, button says "🎤 Ask / Answer"
+      // 'recording'  → mic hot, button says "■ Stop & Send"
+      // 'sending'    → uploading to /step, button disabled
+      let recState = 'idle';
+
+      let mediaRecorder = null;
+      let mediaStream = null;
+      let chunks = [];
+      let mimeType = 'audio/webm';
+      // Set when the user presses Cancel, so the upcoming `onstop` doesn't auto-send.
+      let cancelNextStop = false;
+
+      const appendBubble = (kind, text) => {
+        const prev = logEl.querySelector('p.italic');
+        if (prev) prev.remove();
+        const div = document.createElement('div');
+        div.className = 'bubble ' + (
+          kind === 'student' ? 'bubble-student' :
+          kind === 'eval'    ? 'bubble-eval'    :
+          kind === 'err'     ? 'bubble-err'     :
+                               'bubble-tutor'
+        );
+        div.innerHTML = kind === 'tutor' ? renderMd(text) : text;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+      };
+
+      const ready = () => !!sessionId && !paused && lessonMode !== 'done';
+
+      const renderButton = () => {
+        // Ask/Answer is disabled only when: no session, paused, or mid-send.
+        askBtn.disabled = !ready() || recState === 'sending';
+
+        if (recState === 'recording') {
+          askIcon.textContent  = '■';
+          askLabel.textContent = 'Stop & Send';
+          askBtn.classList.add('is-recording');
+          cancelBtn.classList.remove('hidden');
+        } else if (recState === 'sending') {
+          askIcon.textContent  = '…';
+          askLabel.textContent = 'Sending…';
+          askBtn.classList.remove('is-recording');
+          cancelBtn.classList.add('hidden');
+        } else {
+          askIcon.textContent  = '🎤';
+          askLabel.textContent = 'Ask / Answer';
+          askBtn.classList.remove('is-recording');
+          cancelBtn.classList.add('hidden');
+        }
+
+        pauseBtn.disabled = !sessionId || lessonMode === 'done';
+
+        if (!sessionId) {
+          micStatus.textContent = 'Click Start Lesson first.';
+        } else if (paused) {
+          micStatus.textContent = 'Paused. Click Resume to continue.';
+        } else if (recState === 'recording') {
+          micStatus.innerHTML = '<span class="rec-dot"></span> Listening… tap <strong>■ Stop &amp; Send</strong> when done.';
+        } else if (recState === 'sending') {
+          micStatus.textContent = 'Transcribing & thinking…';
+        } else if (lessonMode === 'waiting_for_answer') {
+          micStatus.textContent = 'Tap Ask / Answer to speak your reply.';
+        } else if (lessonMode === 'waiting_for_greeting') {
+          micStatus.textContent = 'Say hi — tap Ask / Answer to record your greeting.';
+        } else {
+          micStatus.textContent = 'Tap Ask / Answer any time — to answer the tutor OR ask your own doubt.';
+        }
+      };
+
+      // When the server returns a `segment_audio_url` alongside the main
+      // `audio_url`, we play the short feedback first and chain the segment
+      // as soon as it ends.  The segment is also kicked off as a preload
+      // (`new Audio(url)`) right away so its bytes are cached by the time
+      // the feedback clip finishes — no extra network wait in the middle.
+      let pendingSegmentUrl = null;
+      let segmentPreloader = null;
+      const queueSegmentAudio = (url) => {
+        pendingSegmentUrl = url || null;
+        if (segmentPreloader) {
+          try { segmentPreloader.src = ''; } catch {}
+          segmentPreloader = null;
+        }
+        if (!url) return;
+        try {
+          segmentPreloader = new Audio();
+          segmentPreloader.preload = 'auto';
+          segmentPreloader.src = url;
+          segmentPreloader.load();
+        } catch { /* preload is best-effort */ }
+      };
+
+      audioEl.addEventListener('ended', () => {
+        if (!pendingSegmentUrl) return;
+        const next = pendingSegmentUrl;
+        pendingSegmentUrl = null;
+        segmentPreloader = null;
+        audioEl.src = next;
+        audioEl.play().catch(() => {});
+      });
+
+      const handleServerResponse = (data) => {
+        if (!data) return;
+        lessonMode = data.mode || lessonMode;
+        if (data.status) appendBubble('tutor', '**Status:** ' + data.status);
+        if (data.student_text) appendBubble('student', '**You:** ' + data.student_text);
+        if (data.evaluation) {
+          const isOk = data.evaluation.is_correct ? 'Correct ✓' : 'Needs review ✗';
+          appendBubble('eval', `**Evaluation (${isOk}):** ${data.evaluation.feedback || ''}`);
+        }
+        if (data.lesson_status) statusEl.textContent = data.lesson_status + (paused ? ' · paused' : '');
+        // Queue the segment audio BEFORE starting feedback playback so the
+        // browser has the whole chain time to pre-buffer it.
+        queueSegmentAudio(data.segment_audio_url);
+        if (data.audio_url) {
+          audioEl.src = data.audio_url;
+          audioEl.play().catch(() => {});
+        } else if (pendingSegmentUrl) {
+          // No feedback audio (edge case) — just play the segment directly.
+          const next = pendingSegmentUrl;
+          pendingSegmentUrl = null;
+          audioEl.src = next;
+          audioEl.play().catch(() => {});
+        }
+        renderButton();
+      };
+
+      // ── Start / Pause lesson ─────────────────────────────────────────
+      startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        startBtn.textContent = 'Starting…';
+        appendBubble('tutor', '**Starting lesson…**');
+        try {
+          const res = await fetch('/api/tutor/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              language: langSel.value,
+              asr_language: asrSel.value,
+              chapter: 'Electrostatics',
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Start failed');
+          sessionId = data.session_id;
+          lessonMode = data.mode;
+          paused = false;
+          recState = 'idle';
+          startBtn.textContent = 'Restart Lesson';
+          startBtn.disabled = false;
+          pauseBtn.textContent = 'Pause';
+          handleServerResponse(data);
+        } catch (e) {
+          appendBubble('err', '**Error:** ' + (e.message || e));
+          flash('Tutor start failed (see log)', true, 5000);
+          startBtn.disabled = false;
+          startBtn.textContent = 'Start Lesson';
+        }
+      });
+
+      pauseBtn.addEventListener('click', async () => {
+        if (!sessionId) return;
+        try {
+          const res = await fetch('/api/tutor/pause', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Pause failed');
+          paused = !!data.paused;
+          pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+          if (paused) audioEl.pause();
+          appendBubble('tutor', paused ? '**Lesson paused.**' : '**Lesson resumed.**');
+          renderButton();
+        } catch (e) {
+          flash('Pause failed: ' + e.message, true);
+        }
+      });
+
+      // ── Recording + auto-send ────────────────────────────────────────
+      const stopTutorAudio = () => {
+        try {
+          audioEl.pause();
+          audioEl.currentTime = 0;
+        } catch (e) { /* noop */ }
+        // Drop any queued segment audio — the student has taken over, the
+        // server's next reply will tell us what to play next.
+        pendingSegmentUrl = null;
+        if (segmentPreloader) {
+          try { segmentPreloader.src = ''; } catch {}
+          segmentPreloader = null;
+        }
+      };
+
+      const beginRecording = async () => {
+        try {
+          // Mute the tutor the moment the student wants to speak — otherwise
+          // the mic picks up the TTS and ASR degrades.
+          stopTutorAudio();
+
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+          mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm';
+          mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+          chunks = [];
+          cancelNextStop = false;
+          mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+          mediaRecorder.onstop = () => {
+            // Tear the mic down regardless of outcome.
+            if (mediaStream) {
+              mediaStream.getTracks().forEach((t) => t.stop());
+              mediaStream = null;
+            }
+            if (cancelNextStop) {
+              cancelNextStop = false;
+              chunks = [];
+              recState = 'idle';
+              renderButton();
+              return;
+            }
+            const blob = new Blob(chunks, { type: mimeType });
+            chunks = [];
+            // Empty blob → probably a misfire; don't bother the backend.
+            if (!blob || blob.size < 512) {
+              recState = 'idle';
+              appendBubble('err', '**No audio captured** — try speaking a bit longer.');
+              renderButton();
+              return;
+            }
+            void sendBlob(blob);
+          };
+          mediaRecorder.start();
+          recState = 'recording';
+          renderButton();
+        } catch (e) {
+          recState = 'idle';
+          appendBubble('err', '**Microphone error:** ' + (e.message || e));
+          flash('Could not access microphone', true, 4000);
+          renderButton();
+        }
+      };
+
+      const stopRecordingAndSend = () => {
+        if (!mediaRecorder) return;
+        if (mediaRecorder.state !== 'inactive') {
+          try { mediaRecorder.stop(); } catch (e) { /* noop */ }
+        }
+      };
+
+      const sendBlob = async (blob) => {
+        if (!sessionId) return;
+        recState = 'sending';
+        renderButton();
+        appendBubble('tutor', '_Transcribing & evaluating…_');
+        const fd = new FormData();
+        fd.append('session_id', sessionId);
+        fd.append('audio', blob, 'answer.webm');
+        try {
+          const res = await fetch('/api/tutor/step', { method: 'POST', body: fd });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Step failed');
+          recState = 'idle';
+          handleServerResponse(data);
+        } catch (e) {
+          recState = 'idle';
+          appendBubble('err', '**Error:** ' + (e.message || e));
+          flash('Tutor step failed (see log)', true, 5000);
+          renderButton();
+        }
+      };
+
+      askBtn.addEventListener('click', () => {
+        if (askBtn.disabled) return;
+        if (recState === 'idle') {
+          void beginRecording();
+        } else if (recState === 'recording') {
+          stopRecordingAndSend();
+        }
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        if (recState !== 'recording') return;
+        cancelNextStop = true;
+        stopRecordingAndSend();
+      });
+
+      return {
+        onOpen:  () => { renderButton(); },
+        onClose: () => {
+          stopTutorAudio();
+          audioEl.src = '';
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            cancelNextStop = true;
+            try { mediaRecorder.stop(); } catch {}
+          }
+          if (mediaStream) {
+            mediaStream.getTracks().forEach((t) => t.stop());
+            mediaStream = null;
+          }
+          recState = 'idle';
+        },
+      };
+    })();
+
+    // ── Deep-link: /voice#listen or /voice#tutor ────────────────────────
+    const initial = (location.hash || '').replace('#', '');
+    if (initial === 'listen' || initial === 'tutor') openPanel(initial);
+  })();
+</script>
+{% endblock %}

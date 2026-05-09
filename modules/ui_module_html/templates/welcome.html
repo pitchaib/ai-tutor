@@ -1,0 +1,101 @@
+{% extends "_layout.html" %}
+
+{% block title %}AI Tutor — Welcome, {{ first_name }}!{% endblock %}
+
+{% block content %}
+
+  <!-- ── Hero welcome ──────────────────────────────────────────────────── -->
+  <section class="animate-fade-up">
+    <div class="bg-gradient-to-br from-brand-900 via-brand-700 to-sky-500 rounded-3xl px-8 py-10 sm:px-12 text-white relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full translate-x-24 -translate-y-24"></div>
+      <div class="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -translate-x-16 translate-y-16"></div>
+
+      <div class="relative z-10">
+        <p class="text-blue-200 text-sm font-semibold uppercase tracking-widest mb-2">Good to have you here</p>
+        <h1 class="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-3">
+          Welcome, {{ first_name }}! 👋
+        </h1>
+        <p class="text-blue-100 text-base sm:text-lg max-w-xl leading-relaxed">
+          Your AI tutor is ready. Pick a mode below — listen and speak, chat with the tutor, practise, or explore curated resources.
+        </p>
+
+        {% if student %}
+        <div class="flex flex-wrap gap-2 mt-6">
+          <span class="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            🏫 {{ student.school or 'School' }}
+          </span>
+          <span class="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            📋 {{ student.board }}
+          </span>
+          <span class="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            🗣️ {{ student.medium }}
+          </span>
+        </div>
+        {% endif %}
+
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="/textbook"
+             class="btn-primary inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-display font-bold text-white text-base shadow-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+            </svg>
+            Start Learning
+          </a>
+          <a href="#how-it-works"
+             class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors font-semibold text-white text-sm">
+            How it works
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Mode cards (4 clickable tiles) ────────────────────────────────── -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-up-2">
+    {% set tiles = [
+      ('/voice',     '🎧', 'Voice-first',           'Listen & speak with the tutor.'),
+      ('/practice',  '🧠', 'Test My Understanding', 'Adaptive quiz after each concept.'),
+      ('/resources', '🌐', 'Popular Resources',     'Curated videos & articles.'),
+      ('/textbook',  '📖', 'Textbook-based',        'Concept overview & tutor guidance.'),
+    ] %}
+    {% for href, icon, title, desc in tiles %}
+    <a href="{{ href }}"
+       class="group block bg-white border border-gray-100 rounded-2xl p-5 text-left card-hover shadow-sm relative overflow-hidden">
+      <div class="text-3xl mb-3">{{ icon }}</div>
+      <p class="font-display font-bold text-gray-900 text-base">{{ title }}</p>
+      <p class="text-gray-500 text-xs mt-1 leading-relaxed">{{ desc }}</p>
+      <span class="absolute top-4 right-4 text-gray-300 group-hover:text-brand-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+      </span>
+    </a>
+    {% endfor %}
+  </section>
+
+  <!-- ── How it works ──────────────────────────────────────────────────── -->
+  <section id="how-it-works" class="animate-fade-up-3">
+    <h2 class="font-display text-2xl font-bold text-gray-900 mb-6">How it works</h2>
+    <div class="grid sm:grid-cols-3 gap-4">
+      {% set steps = [
+        ('1', '📚', 'Choose a chapter',
+               'Select your subject, chapter, and preferred language.'),
+        ('2', '🎙️💬', 'Listen & interact — Voice or Chat',
+               'AI reads the lesson aloud in Voice mode, or you can read-and-type in Chat mode. Either way, the tutor asks questions at key points.'),
+        ('3', '✅', 'Get evaluated — Voice or Chat',
+               'Answer by speaking or typing. The tutor evaluates your response the same way in either mode and continues to the next concept.'),
+      ] %}
+      {% for num, icon, title, desc in steps %}
+      <div class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm card-hover">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-8 h-8 rounded-full bg-brand-50 text-brand-600 font-display font-bold text-sm flex items-center justify-center">{{ num }}</div>
+          <span class="text-2xl">{{ icon }}</span>
+        </div>
+        <h3 class="font-display font-bold text-gray-900 mb-1">{{ title }}</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+{% endblock %}

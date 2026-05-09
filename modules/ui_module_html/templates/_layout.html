@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}AI Tutor{% endblock %}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Outfit', 'sans-serif'],
+            body:    ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: { 50:'#eef4ff', 100:'#d9e7ff', 500:'#3b6ff0', 600:'#2356d8', 700:'#1a41b8', 900:'#0f2360' },
+          },
+          animation: {
+            'fade-up':   'fadeUp 0.5s ease both',
+            'fade-up-2': 'fadeUp 0.5s 0.1s ease both',
+            'fade-up-3': 'fadeUp 0.5s 0.2s ease both',
+            'fade-up-4': 'fadeUp 0.5s 0.3s ease both',
+          },
+          keyframes: {
+            fadeUp: { '0%': { opacity:'0', transform:'translateY(20px)' }, '100%': { opacity:'1', transform:'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+    h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
+
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(35,86,216,0.12);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #2356d8, #3b6ff0);
+      transition: all 0.2s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(35,86,216,0.32);
+    }
+
+    .nav-blur {
+      backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.85);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .avatar { background: linear-gradient(135deg, #2356d8, #3b6ff0); }
+
+    /* Mode-pill switcher used on /textbook and /practice */
+    .mode-pill {
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid rgba(0,0,0,0.08);
+      color: #475569;
+      transition: all 0.15s ease;
+    }
+    .mode-pill.active {
+      background: linear-gradient(135deg, #2356d8, #3b6ff0);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 6px 18px rgba(35,86,216,0.25);
+    }
+
+    {% block extra_styles %}{% endblock %}
+  </style>
+</head>
+
+<body class="min-h-full bg-slate-50">
+
+  <!-- ── Navigation ─────────────────────────────────────────────────────── -->
+  <nav class="sticky top-0 z-50 nav-blur px-6 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/welcome" class="flex items-center gap-2.5 group">
+        <span class="text-2xl">🎓</span>
+        <span class="font-display font-bold text-gray-900 text-lg tracking-tight group-hover:text-brand-600 transition-colors">AI Tutor</span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-1">
+        {% set active = active_page|default('') %}
+        <a href="/voice"     class="px-3 py-1.5 rounded-lg text-sm font-semibold {% if active=='voice' %}text-brand-600 bg-brand-50{% else %}text-gray-600 hover:text-brand-600{% endif %}">Voice-first</a>
+        <a href="/practice"  class="px-3 py-1.5 rounded-lg text-sm font-semibold {% if active=='practice' %}text-brand-600 bg-brand-50{% else %}text-gray-600 hover:text-brand-600{% endif %}">Test My Understanding</a>
+        <a href="/resources" class="px-3 py-1.5 rounded-lg text-sm font-semibold {% if active=='resources' %}text-brand-600 bg-brand-50{% else %}text-gray-600 hover:text-brand-600{% endif %}">Popular Resources</a>
+        <a href="/textbook"  class="px-3 py-1.5 rounded-lg text-sm font-semibold {% if active=='textbook' %}text-brand-600 bg-brand-50{% else %}text-gray-600 hover:text-brand-600{% endif %}">Textbook-based</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        {% if student %}
+        <div class="hidden sm:flex items-center gap-2 text-sm text-gray-600">
+          <div class="avatar w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs">
+            {{ first_name[0] | upper }}
+          </div>
+          <span class="font-medium">{{ first_name }}</span>
+        </div>
+        {% endif %}
+        <a href="/" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Sign out</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-10">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-gray-100 mt-16 py-8 text-center text-gray-400 text-xs">
+    <p>© 2026 AI Tutor · Built for Indian school students · Voice + Chat learning</p>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

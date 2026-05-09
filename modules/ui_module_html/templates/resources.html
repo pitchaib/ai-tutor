@@ -1,0 +1,274 @@
+{% extends "_layout.html" %}
+
+{% block title %}AI Tutor — Popular Resources{% endblock %}
+
+{% block extra_styles %}
+    .badge {
+      display:inline-flex; align-items:center; padding:2px 10px; border-radius:999px;
+      font-size:10.5px; font-weight:700; letter-spacing:0.02em; text-transform:uppercase;
+    }
+    .badge.youtube { background:#fef2f2; color:#b91c1c; }
+    .badge.article { background:#ecfeff; color:#0e7490; }
+    .badge.edutech { background:#f0fdf4; color:#15803d; }
+    .badge.other   { background:#f1f5f9; color:#475569; }
+
+    .score-bar {
+      height:4px; border-radius:3px; background:#e5e7eb; overflow:hidden; position:relative;
+    }
+    .score-fill {
+      position:absolute; left:0; top:0; bottom:0;
+      background: linear-gradient(90deg, #10b981, #3b6ff0);
+      border-radius:3px;
+    }
+
+    /* Like / dislike feedback */
+    .feedback-row {
+      display:flex; align-items:center; gap:8px;
+      padding-top:12px; margin-top:12px;
+      border-top:1px dashed #eef2f7;
+    }
+    .vote-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb;
+      background:#fff; color:#4b5563; font-size:12.5px; font-weight:600;
+      transition: background .15s, border-color .15s, color .15s, transform .1s;
+      cursor:pointer; user-select:none;
+    }
+    .vote-btn:hover { background:#f9fafb; transform: translateY(-1px); }
+    .vote-btn:active { transform: translateY(0); }
+    .vote-btn[disabled] { opacity:.55; cursor:wait; }
+
+    .vote-btn.like.active   { background:#ecfdf5; border-color:#6ee7b7; color:#047857; }
+    .vote-btn.dislike.active{ background:#fef2f2; border-color:#fca5a5; color:#b91c1c; }
+
+    .vote-count { font-variant-numeric: tabular-nums; min-width:1.25em; text-align:left; }
+
+    .rating-chip {
+      margin-left:auto;
+      display:inline-flex; align-items:center; gap:4px;
+      padding:4px 9px; border-radius:999px;
+      background:#eef5ff; color:#1a41b8;
+      font-size:11.5px; font-weight:700;
+    }
+
+    /* feedback message pill */
+    .vote-flash {
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:#111827; color:#fff; font-size:13px;
+      padding:8px 16px; border-radius:999px; opacity:0;
+      transition: opacity .2s; pointer-events:none; z-index:50;
+    }
+    .vote-flash.show { opacity:1; }
+{% endblock %}
+
+{% block content %}
+
+  <!-- Header -->
+  <section class="animate-fade-up">
+    <div class="flex items-center gap-3 text-sm text-gray-500 mb-2">
+      <a href="/welcome" class="hover:text-brand-600">← Back to home</a>
+      <span class="text-gray-300">/</span>
+      <span class="text-gray-700 font-semibold">Popular Resources</span>
+    </div>
+    <h1 class="font-display text-3xl sm:text-4xl font-extrabold text-gray-900">Popular Resources</h1>
+    <p class="text-gray-500 text-sm mt-2 max-w-2xl">
+      Hand-picked videos, articles, and edutech links for each chapter — curated and ranked by the AI tutor based on student feedback.
+    </p>
+  </section>
+
+  <!-- Chapter tabs -->
+  <section class="animate-fade-up-2">
+    <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <div class="flex items-center gap-3 flex-wrap" id="chapter-tabs">
+        {% if resources %}
+          {% for name in resources.keys() %}
+            <button data-chapter="{{ name }}"
+                    class="mode-pill {% if loop.first %}active{% endif %}">{{ name }}</button>
+          {% endfor %}
+        {% else %}
+          <span class="text-sm text-gray-400">No chapters yet.</span>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Resource cards -->
+  <section class="animate-fade-up-3">
+    <div id="resource-panels">
+      {% for chapter, entry in resources.items() %}
+      <div data-panel="{{ chapter }}" class="chapter-panel" style="{% if not loop.first %}display:none;{% endif %}">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {% for r in entry.resources %}
+          <div class="resource-card group bg-white border border-gray-100 rounded-2xl p-5 shadow-sm card-hover"
+               data-chapter="{{ chapter }}" data-url="{{ r.url }}">
+            <div class="flex items-start justify-between mb-3">
+              <span class="w-9 h-9 rounded-xl bg-brand-50 text-brand-700 font-display font-bold flex items-center justify-center">{{ r.rank }}</span>
+              <span class="badge {{ r.type if r.type in ['youtube','article','edutech'] else 'other' }}">{{ r.type }}</span>
+            </div>
+            <h3 class="font-display font-bold text-gray-900 leading-snug group-hover:text-brand-700 transition-colors">
+              <a href="{{ r.url }}" target="_blank" rel="noopener" class="hover:underline">{{ r.title }}</a>
+            </h3>
+            <p class="text-gray-500 text-sm mt-2 leading-relaxed line-clamp-3">{{ r.reason }}</p>
+
+            <div class="mt-4 flex items-center gap-3">
+              <div class="flex-1 score-bar">
+                <div class="score-fill rating-fill" style="width: {{ (r.rating * 10) | round(1) }}%;"></div>
+              </div>
+              <span class="text-xs font-semibold text-gray-500 rating-label">{{ r.rating }}/10</span>
+            </div>
+
+            <div class="mt-3">
+              <a href="{{ r.url }}" target="_blank" rel="noopener"
+                 class="text-xs font-semibold text-brand-600 inline-flex items-center gap-1 hover:text-brand-700">
+                Explore More
+                <svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+                </svg>
+              </a>
+            </div>
+
+            <div class="feedback-row">
+              <button type="button"
+                      class="vote-btn like {% if r.my_vote == 'like' %}active{% endif %}"
+                      data-action="like"
+                      aria-pressed="{{ 'true' if r.my_vote == 'like' else 'false' }}"
+                      aria-label="Helpful — like this resource">
+                <span aria-hidden="true">👍</span>
+                <span class="vote-count like-count">{{ r.likes }}</span>
+              </button>
+              <button type="button"
+                      class="vote-btn dislike {% if r.my_vote == 'dislike' %}active{% endif %}"
+                      data-action="dislike"
+                      aria-pressed="{{ 'true' if r.my_vote == 'dislike' else 'false' }}"
+                      aria-label="Not helpful — dislike this resource">
+                <span aria-hidden="true">👎</span>
+                <span class="vote-count dislike-count">{{ r.dislikes }}</span>
+              </button>
+
+              <span class="rating-chip" title="Community rating: curator score + student votes">
+                ⭐ <span class="rating-chip-value">{{ r.rating }}</span>
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if not resources %}
+      <div class="bg-white border border-gray-100 rounded-2xl p-12 text-center shadow-sm">
+        <div class="text-4xl mb-3">📚</div>
+        <p class="font-display font-bold text-gray-900">No resources available yet</p>
+        <p class="text-gray-500 text-sm mt-1">The tutor team is curating top learning resources for each chapter. Check back soon.</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="animate-fade-up-4">
+    <div class="bg-gradient-to-br from-brand-900 via-brand-700 to-sky-500 rounded-2xl p-7 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <h2 class="font-display text-xl font-bold">Want more practice?</h2>
+        <p class="text-blue-100 text-sm mt-1">Jump straight into an adaptive quiz for any chapter.</p>
+      </div>
+      <a href="/practice" class="btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-lg font-display font-bold text-white text-sm shadow whitespace-nowrap">
+        🧠 Test My Understanding
+      </a>
+    </div>
+  </section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Chapter tabs ──────────────────────────────────────────────────────
+  const tabs = document.querySelectorAll('#chapter-tabs [data-chapter]');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      const key = t.dataset.chapter;
+      document.querySelectorAll('.chapter-panel').forEach(p => {
+        p.style.display = (p.dataset.panel === key) ? '' : 'none';
+      });
+    });
+  });
+
+  // ── Like / Dislike voting ─────────────────────────────────────────────
+  const flash = (() => {
+    const el = document.createElement('div');
+    el.className = 'vote-flash';
+    document.body.appendChild(el);
+    let timer;
+    return (msg) => {
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('show'), 1600);
+    };
+  })();
+
+  async function vote(card, action) {
+    const chapter = card.dataset.chapter;
+    const url = card.dataset.url;
+    const buttons = card.querySelectorAll('.vote-btn');
+    buttons.forEach(b => b.setAttribute('disabled', 'disabled'));
+
+    try {
+      const resp = await fetch('/api/resource/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ chapter, url, action }),
+      });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        if (resp.status === 401) {
+          flash('Please sign in to vote.');
+        } else {
+          flash('Could not record vote.' + (text ? ' ' + text.slice(0, 80) : ''));
+        }
+        return;
+      }
+      const data = await resp.json();
+
+      // Update counts
+      card.querySelector('.like-count').textContent    = data.likes;
+      card.querySelector('.dislike-count').textContent = data.dislikes;
+
+      // Update active highlight
+      const likeBtn    = card.querySelector('.vote-btn.like');
+      const dislikeBtn = card.querySelector('.vote-btn.dislike');
+      likeBtn.classList.toggle('active',    data.my_vote === 'like');
+      dislikeBtn.classList.toggle('active', data.my_vote === 'dislike');
+      likeBtn.setAttribute('aria-pressed',    data.my_vote === 'like');
+      dislikeBtn.setAttribute('aria-pressed', data.my_vote === 'dislike');
+
+      // Update rating bar + chip + label
+      const rating = Number(data.rating) || 0;
+      card.querySelector('.rating-fill').style.width = (rating * 10).toFixed(1) + '%';
+      card.querySelector('.rating-label').textContent = rating + '/10';
+      card.querySelector('.rating-chip-value').textContent = rating;
+
+      if (data.my_vote === 'like')          flash('Thanks — marked as helpful.');
+      else if (data.my_vote === 'dislike')  flash('Noted — we\'ll show fewer like this.');
+      else                                  flash('Vote removed.');
+    } catch (err) {
+      flash('Network error. Try again.');
+    } finally {
+      buttons.forEach(b => b.removeAttribute('disabled'));
+    }
+  }
+
+  document.querySelectorAll('.resource-card').forEach(card => {
+    card.querySelectorAll('.vote-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        vote(card, btn.dataset.action);
+      });
+    });
+  });
+</script>
+{% endblock %}

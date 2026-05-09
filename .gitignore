@@ -1,0 +1,29 @@
+# Virtual environments
+.venv/
+venv/
+venv-*/
+*.venv
+
+# Secrets — never commit
+configs/vertex.env
+**/google-credentials.json
+*.key
+*.pem
+
+# Runtime / generated
+logs/
+.pids/
+outputs/
+model_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.cursor/
+.vscode/
+*.swp
