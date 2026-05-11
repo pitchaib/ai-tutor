@@ -1,30 +1,49 @@
 # AI Personal Tutor
 
-A voice-first, bilingual (English / Tamil) AI tutor that teaches Class-12 Physics page-by-page from a textbook PDF using a Vertex AI–hosted language model (Gemma / Gemini) for explanations, assessment, and interactive Q&A.
+An AI-powered, voice-first personal tutor that teaches any subject from any textbook PDF — supporting students from **Class 6 through Class 12** across **all Indian boards** (CBSE, ICSE, and all State Boards). The tutor explains concepts page by page, asks questions, evaluates answers, generates practice MCQs, and holds a full spoken conversation — all in the student's preferred language.
+
+---
+
+## Key Capabilities
+
+- **Any class, any board, any subject** — point it at any textbook PDF (Physics, Chemistry, Maths, Biology, Social Science, etc.) for Class 6–12
+- **Multilingual voice and text** — speak and read explanations in English, Tamil, Hindi, Telugu, Kannada, Malayalam, and more; mix languages freely in a single session
+- **Page-by-page AI teaching** — the tutor reads the book, explains each page in simple language, and narrates it aloud
+- **Interactive voice lesson mode** — the tutor narrates a chunk, asks a question, listens to the student's spoken answer, evaluates it, and continues automatically
+- **Contextual textbook chat** — highlight any sentence on the page and ask a question; the tutor answers from the selected passage or its broader subject knowledge
+- **Auto-generated MCQ quizzes** — concept-level multiple-choice questions generated per page with difficulty progression (easy ? medium ? hard)
+- **Curated resource recommendations** — links to videos, articles, and edutech content ranked by student votes
+- **Student signup and personalisation** — collects board, class, medium of instruction, and school at signup to tailor the experience
 
 ---
 
 ## Architecture
 
-Three services run together behind a single script (`start.sh`):
+Three services run together, launched by a single script (`start.sh`):
 
 | Service | Port | Description |
 |---------|------|-------------|
-| **learn_api** | 8000 | FastAPI backend — page-wise explanations, MCQ generation, textbook chat |
+| **learn_api** | 8000 | FastAPI backend — page explanations, MCQ generation, textbook chat |
 | **gradio_ui** | 7860 | Gradio Tutor UI — voice lesson mode, resource voting |
 | **html_frontend** | 8080 | HTML / Jinja2 frontend — signup, textbook view, voice Q&A |
 
 ```
-Browser  ???  html_frontend (8080)
-                 ??? proxies /api/* ???  learn_api (8000)
-                 ??? redirects /app  ???  gradio_ui (7860)
-
-learn_api  ???  teacher_pdf_pipeline  ???  Vertex AI endpoint (Gemma)
-                                       ???  IndicF5 TTS (Tamil)
-                                       ???  Gemini TTS (English)
-gradio_ui  ???  voice_qa_pipeline     ???  Google Cloud Speech (ASR)
-                                       ???  Vertex AI endpoint (Gemma)
-                                       ???  Gemini TTS
+Browser
+  |
+  +-- html_frontend (port 8080)
+        |
+        +-- /api/*  -->  learn_api (port 8000)
+        |                  |
+        |                  +-- teacher_pdf_pipeline  -->  Vertex AI (Gemma/Gemini)
+        |                  +-- assessment_pipeline   -->  Vertex AI (Gemma/Gemini)
+        |                  +-- Tamil TTS             -->  IndicF5 (local GPU)
+        |                  +-- English TTS           -->  Gemini TTS (Vertex AI)
+        |
+        +-- /app    -->  gradio_ui (port 7860)
+                           |
+                           +-- voice_qa_pipeline  -->  Google Cloud Speech (ASR)
+                                                   -->  Vertex AI (Gemma/Gemini)
+                                                   -->  Gemini TTS (Vertex AI)
 ```
 
 ---
@@ -33,27 +52,58 @@ gradio_ui  ???  voice_qa_pipeline     ???  Google Cloud Speech (ASR)
 
 ```
 Tutor/
-??? start.sh                          # Start / stop / restart all services
-??? requirements.txt                  # Consolidated Python dependencies
-??? configs/
-?   ??? vertex.env.example            # Endpoint config template — copy to vertex.env
-?   ??? config.yaml                   # Tamil TTS (IndicF5) settings
-??? modules/
-    ??? teacher_module/src/
-    ?   ??? teacher_pdf_pipeline.py   # PDF parsing, Vertex client, session caching
-    ??? assessment_module/src/
-    ?   ??? assessment_mcq_pipeline.py  # MCQ generation and caching
-    ??? voice_qa_module/src/
-    ?   ??? voice_qa_pipeline.py      # ASR ? retrieval ? LLM ? TTS pipeline
-    ??? ui_module/src/
-    ?   ??? learn_api.py              # FastAPI app (port 8000)
-    ?   ??? learn_tab_app.py          # Gradio app (port 7860)
-    ?   ??? signup_page.py            # Gradio signup form
-    ?   ??? voice_qa_page.py          # Gradio interactive lesson page
-    ??? ui_module_html/
-        ??? src/server.py             # FastAPI HTML server (port 8080)
-        ??? templates/                # Jinja2 HTML templates
+|-- start.sh                              # Start / stop / restart / status all services
+|-- requirements.txt                      # Consolidated Python dependencies
+|-- configs/
+|   |-- vertex.env.example               # Endpoint config template (copy to vertex.env)
+|   +-- config.yaml                      # Tamil TTS (IndicF5) settings
++-- modules/
+    |-- teacher_module/
+    |   +-- src/
+    |       +-- teacher_pdf_pipeline.py  # PDF parsing, Vertex client, session caching
+    |
+    |-- assessment_module/
+    |   +-- src/
+    |       +-- assessment_mcq_pipeline.py  # MCQ generation and caching
+    |
+    |-- voice_qa_module/
+    |   +-- src/
+    |       +-- voice_qa_pipeline.py     # ASR -> retrieval -> LLM -> TTS pipeline
+    |   +-- scripts/
+    |       +-- run_voice_qa.py          # CLI runner for voice pipeline
+    |
+    |-- ui_module/
+    |   +-- src/
+    |       |-- learn_api.py             # FastAPI backend app (port 8000)
+    |       |-- learn_tab_app.py         # Gradio UI app (port 7860)
+    |       |-- signup_page.py           # Student signup form
+    |       +-- voice_qa_page.py         # Gradio interactive lesson page
+    |
+    +-- ui_module_html/
+        |-- src/
+        |   +-- server.py               # FastAPI HTML server (port 8080)
+        +-- templates/                  # Jinja2 HTML templates
+            |-- _layout.html
+            |-- signup.html
+            |-- welcome.html
+            |-- textbook.html
+            |-- practice.html
+            |-- resources.html
+            +-- voice.html
 ```
+
+---
+
+## Supported Boards and Classes
+
+| Scope | Details |
+|-------|---------|
+| **Classes** | 6th through 12th standard |
+| **Boards** | CBSE, ICSE / ISC, Tamil Nadu, Maharashtra, Karnataka, Kerala, Andhra Pradesh, Telangana, West Bengal, Rajasthan, UP, Gujarat, Bihar, and any other board |
+| **Subjects** | Physics, Chemistry, Mathematics, Biology, Social Science, and any subject with a PDF textbook |
+| **Languages (UI & text)** | English, Tamil, Hindi, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Odia, Punjabi, Assamese, Urdu, Sanskrit |
+| **Languages (voice ASR)** | English (en-US), Tamil (ta-IN) — additional Google Cloud Speech locales can be added |
+| **Languages (TTS)** | English (Gemini TTS), Tamil (IndicF5) — mix modes available |
 
 ---
 
@@ -61,23 +111,24 @@ Tutor/
 
 - Python 3.10+
 - A GCP project with:
-  - **Vertex AI** enabled
+  - **Vertex AI** API enabled
   - A deployed **online prediction endpoint** serving a Gemma or Gemini model
   - **Google Cloud Speech-to-Text API** enabled
-  - **Application Default Credentials (ADC)** configured:
+  - **Application Default Credentials (ADC)** set up:
     ```bash
     gcloud auth application-default login
     ```
-- NVIDIA GPU recommended (for local IndicF5 Tamil TTS)
+- NVIDIA GPU recommended for local IndicF5 Tamil TTS (CPU fallback is slow)
 
 ---
 
 ## Setup
 
-### 1. Clone and enter the repo
+### 1. Clone the repository
 
 ```bash
-cd Tutor
+git clone https://github.com/pitchaib/ai-tutor.git
+cd ai-tutor
 ```
 
 ### 2. Create a virtual environment
@@ -90,10 +141,10 @@ source .venv/bin/activate
 ### 3. Install dependencies
 
 ```bash
-# Install GPU-compatible PyTorch first (adjust cu124 to your CUDA version)
+# Install GPU-compatible PyTorch first (adjust cu124 to match your CUDA version)
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
 
-# Install all other dependencies
+# Install everything else
 pip install -r requirements.txt
 ```
 
@@ -108,22 +159,22 @@ Edit `configs/vertex.env` and fill in your values:
 ```bash
 VERTEX_PROJECT_ID="your-gcp-project-id"
 VERTEX_PROJECT_NUMBER="123456789012"
-VERTEX_LOCATION="us-central1"          # region of your deployed endpoint
+VERTEX_LOCATION="us-central1"          # region where your endpoint is deployed
 VERTEX_ENDPOINT_ID="your-endpoint-id"  # from the Vertex AI console
 VERTEX_API_ENDPOINT="..."              # dedicated PSC host, or leave blank for public
-VERTEX_TTS_LOCATION="us-central1"
+VERTEX_TTS_LOCATION="us-central1"     # region for Gemini TTS
 VERTEX_TTS_PROJECT="your-gcp-project-id"
 ```
 
 > `configs/vertex.env` is `.gitignore`d — never commit it.
 
-### 5. Provide a textbook PDF
-
-Place your PDF at the path expected by `learn_api.py` or override it:
+### 5. Point to your textbook PDF
 
 ```bash
 export PDF_PATH="/path/to/your/textbook.pdf"
 ```
+
+Any standard school textbook in PDF format works. The tutor reads it page by page.
 
 ### 6. Start all services
 
@@ -131,17 +182,17 @@ export PDF_PATH="/path/to/your/textbook.pdf"
 ./start.sh
 ```
 
-Open `http://127.0.0.1:8080` in your browser.
+Open **http://127.0.0.1:8080** in your browser, complete the student signup, and start learning.
 
 ---
 
 ## Service Commands
 
 ```bash
-./start.sh            # start all services
+./start.sh            # start all three services
 ./start.sh stop       # stop all services
 ./start.sh restart    # restart all services
-./start.sh status     # show running / stopped status
+./start.sh status     # show which services are running
 ./start.sh doctor     # diagnose Vertex AI endpoint connectivity
 ```
 
@@ -149,7 +200,7 @@ Open `http://127.0.0.1:8080` in your browser.
 
 ## Environment Variables
 
-All sensitive config is injected via environment variables. Set them in `configs/vertex.env` (sourced by `start.sh`) or export them manually before running.
+All credentials and paths are injected via environment variables sourced from `configs/vertex.env` by `start.sh`. You can also export them manually before running.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -157,16 +208,16 @@ All sensitive config is injected via environment variables. Set them in `configs
 | `VERTEX_PROJECT_NUMBER` | PSC only | GCP project number |
 | `VERTEX_LOCATION` | Yes | Endpoint region (e.g. `us-central1`) |
 | `VERTEX_ENDPOINT_ID` | Yes | Online prediction endpoint ID |
-| `VERTEX_ENDPOINT_URL` | Optional | Full console URL (alternative to split vars) |
+| `VERTEX_ENDPOINT_URL` | Optional | Full console URL (alternative to the four vars above) |
 | `VERTEX_API_ENDPOINT` | PSC only | Dedicated prediction hostname |
 | `VERTEX_TTS_LOCATION` | Yes | Region for Gemini TTS |
-| `VERTEX_TTS_PROJECT` | Yes | Project for Gemini TTS |
-| `AITUTOR_ROOT` | Optional | Absolute path to this repo (default: auto-detected) |
+| `VERTEX_TTS_PROJECT` | Yes | GCP project for Gemini TTS |
+| `AITUTOR_ROOT` | Optional | Absolute path to this repo (auto-detected if not set) |
 | `PDF_PATH` | Optional | Path to textbook PDF |
-| `LEARN_API_URL` | Optional | URL of learn_api if not on localhost (default: `http://127.0.0.1:8000`) |
+| `LEARN_API_URL` | Optional | URL of learn_api (default: `http://127.0.0.1:8000`) |
 | `GRADIO_URL` | Optional | URL of Gradio UI (default: `http://127.0.0.1:7860`) |
 | `HTML_PORT` | Optional | HTML server port (default: `8080`) |
-| `GRADIO_PORT` | Optional | Gradio port (default: `7860`) |
+| `GRADIO_PORT` | Optional | Gradio UI port (default: `7860`) |
 | `API_PORT` | Optional | learn_api port (default: `8000`) |
 
 ---
@@ -176,18 +227,19 @@ All sensitive config is injected via environment variables. Set them in `configs
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check |
-| `GET` | `/learn/init?chapter_name=Electrostatics` | Load first page of chapter |
-| `POST` | `/learn/page` | Get explanation for a specific page |
-| `POST` | `/learn/navigate` | Navigate previous / next page |
-| `POST` | `/textbook/chat` | Contextual Q&A on selected text |
-| `GET` | `/learn/page_image?page_no=1` | Render page as PNG |
-| `GET` | `/quiz?chapter_name=...&current_page=...` | Interactive MCQ quiz page |
-| `POST` | `/quiz/submit` | Submit quiz answers |
+| `GET` | `/learn/init?chapter_name=...` | Load the first page of a chapter |
+| `POST` | `/learn/page` | Get AI explanation for a specific page |
+| `POST` | `/learn/navigate` | Navigate to the previous or next page |
+| `POST` | `/textbook/chat` | Contextual Q&A on selected text from the page |
+| `GET` | `/learn/page_image?page_no=1` | Render a PDF page as a PNG image |
+| `GET` | `/quiz?chapter_name=...&current_page=...` | Interactive MCQ quiz for a page |
+| `POST` | `/quiz/submit` | Submit quiz answers and get results |
 
 ---
 
 ## Notes
 
-- The **teacher explanation cache** lives in `modules/teacher_module/outputs/` — pre-populate it by running the pipeline against your PDF before first use for faster page loads.
-- **Tamil TTS** (IndicF5) downloads model weights on first run to `model_cache/`; this requires internet access and ~2 GB of storage.
-- **English TTS** uses `gemini-2.5-flash-preview-tts` via the Vertex AI Generative AI API — ensure it is available in your `VERTEX_TTS_LOCATION`.
+- **Pre-populate the teacher cache** — run the pipeline against your PDF once before first use. This stores AI-generated explanations in `modules/teacher_module/outputs/` so pages load instantly without calling the LLM every time.
+- **Tamil TTS (IndicF5)** downloads model weights (~2 GB) on first run to `model_cache/`. An internet connection is required on first startup.
+- **English TTS** uses `gemini-2.5-flash-preview-tts` via Vertex AI. Ensure this model is available in your `VERTEX_TTS_LOCATION`.
+- **Adding more languages** — the ASR language code (e.g. `hi-IN` for Hindi) can be passed per session. TTS for additional languages can be integrated by extending `voice_qa_pipeline.py`.
