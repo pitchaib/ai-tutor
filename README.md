@@ -1,19 +1,41 @@
 # AI Personal Tutor
 
-An AI-powered, voice-first personal tutor that teaches any subject from any textbook PDF ù supporting students from **Class 6 through Class 12** across **all Indian boards** (CBSE, ICSE, and all State Boards). The tutor explains concepts page by page, asks questions, evaluates answers, generates practice MCQs, and holds a full spoken conversation ù all in the student's preferred language.
+**Gemma 4** is the core **thinking module**: it reads your textbook like a subject teacher, reasons about each concept on every page, and drives every helpful interactionùwhether the student types in **chat**, follows the **voice lesson**, asks a spoken doubt, or checks understanding with **auto-built quizzes**. The rest of the system (speech recognition, text-to-speech, PDF layout, and HTTP/Gradio UIs) wraps that intelligence so learning feels natural and bilingual.
+
+Alongside the book, the tutor supports students from **Class 6 through Class 12** across **all Indian boards** (CBSE, ICSE, state boards) in **any subject** with a PDFùand in the studentùs preferred **voice and text** languages.
 
 ---
 
 ## Key Capabilities
 
-- **Any class, any board, any subject** ù point it at any textbook PDF (Physics, Chemistry, Maths, Biology, Social Science, etc.) for Class 6ù12
-- **Multilingual voice and text** ù speak and read explanations in English, Tamil, Hindi, Telugu, Kannada, Malayalam, and more; mix languages freely in a single session
-- **Page-by-page AI teaching** ù the tutor reads the book, explains each page in simple language, and narrates it aloud
-- **Interactive voice lesson mode** ù the tutor narrates a chunk, asks a question, listens to the student's spoken answer, evaluates it, and continues automatically
-- **Contextual textbook chat** ù highlight any sentence on the page and ask a question; the tutor answers from the selected passage or its broader subject knowledge
-- **Auto-generated MCQ quizzes** ù concept-level multiple-choice questions generated per page with difficulty progression (easy to medium to hard)
-- **Curated resource recommendations** ù links to videos, articles, and edutech content ranked by student votes
-- **Student signup and personalisation** ù collects board, class, medium of instruction, and school at signup to tailor the experience
+- **Any class, any board, any subject** ù point it at any textbook PDF (Physics, Chemistry, Maths, Biology, Social Science, and more) for Class 6ù12.
+- **Multilingual voice and text** ù speak and read explanations in English, Tamil, Hindi, Telugu, Kannada, Malayalam, and more; mix languages in one session.
+- **Page-by-page teaching from the book** ù Gemma 4 turns raw PDF text into clear explanations; the student sees the page and hears follow-up audio where configured.
+- **Interactive voice lesson** ù Gemma 4 scripts what the tutor says, asks check questions, interprets the studentùs spoken answers, and decides how to continue.
+- **Contextual textbook chat** ù highlight text on the page and chat; Gemma 4 answers from the passage when it can, and still helps with on-topic follow-ups.
+- **Auto-generated MCQs** ù Gemma 4 designs practice questions from the teacher explanations, with difficulty that ramps up.
+- **Curated resources** ù ranked links (videos, articles) with student voting.
+- **Signup and personalisation** ù board, class, medium, and school captured at first launch.
+
+---
+
+## Gemma 4: how the thinking tutor helps the student
+
+Gemma 4 is not a side featureùit is the **reasoning engine** behind the product.
+
+1. **From the book to clear explanations**  
+   The pipeline extracts text from the textbook PDF. Gemma 4 rewrites it as structured **teacher explanations**: simpler language, examples where useful, and continuity from one page section to the next. That is the baseline ùconcept from the bookù the student sees and hears.
+
+2. **Chat that stays grounded in the lesson**  
+   In **textbook chat**, the student can select a sentence or paragraph and ask anything. Gemma 4 uses that selection (and the broader page context) to answer **on the page** when the information is there, branch **beyond the page** for fair on-topic help, or gently redirect **off-topic** questions. So chat feels like talking to a tutor who actually opened the same book.
+
+3. **Interaction, not a monologue**  
+   In **voice lesson mode**, Gemma 4 drives the **dialogue**: greetings, narration, follow-up questions, evaluation of what the student said, short clarifications when they interrupt with a doubt, and feedback that moves the lesson forward. Speech-to-text turns their voice into text; **Gemini TTS** (and optional Tamil stacks) turn Gemmaùs replies back into speechùso the ùthinkingù stays Gemma-shaped even when the medium is voice.
+
+4. **Practice that matches what was taught**  
+   MCQs are **generated from the same explanations** Gemma 4 wrote for the page, so quizzes reinforce the concepts the student just studiedùnot generic trivia.
+
+In production you typically deploy **Gemma 4 (or a compatible Gemma/Gemini model)** on a **Vertex AI online prediction endpoint** and point this app at that endpoint via `configs/vertex.env`. For **local or notebook** experiments, the repo also references Hugging Face Gemma 4 model IDs in `teacher_pdf_pipeline.py`; the running services use the Vertex client path by default.
 
 ---
 
@@ -34,15 +56,15 @@ Browser
         |
         +-- /api/*  -->  learn_api (port 8000)
         |                  |
-        |                  +-- teacher_pdf_pipeline  -->  Vertex AI (Gemma/Gemini)
-        |                  +-- assessment_pipeline   -->  Vertex AI (Gemma/Gemini)
-        |                  +-- Tamil TTS             -->  IndicF5 (local GPU)
+        |                  +-- teacher_pdf_pipeline  -->  Vertex AI (Gemma 4 / Gemma / Gemini)
+        |                  +-- assessment_pipeline   -->  Vertex AI (Gemma 4 / Gemma / Gemini)
+        |                  +-- Tamil TTS             -->  IndicF5 (local GPU, optional)
         |                  +-- English TTS           -->  Gemini TTS (Vertex AI)
         |
         +-- /app    -->  gradio_ui (port 7860)
                            |
                            +-- voice_qa_pipeline  -->  Google Cloud Speech (ASR)
-                                                   -->  Vertex AI (Gemma/Gemini)
+                                                   -->  Vertex AI (Gemma 4 / Gemma / Gemini)
                                                    -->  Gemini TTS (Vertex AI)
 ```
 
@@ -50,42 +72,42 @@ Browser
 
 ## Models and cloud services
 
-This stack combines a **Vertex-deployed text model** (commonly **Gemma** or **Gemini** on an online prediction endpoint), **Gemini preview TTS**, and **Google Cloud Speech-to-Text**. The table below maps each to its role by module.
+This stack centres on a **Vertex-deployed text model** (recommended: **Gemma 4** on an online prediction endpoint for the behaviour described above). It also uses **Gemini TTS** for most spoken output and **Google Cloud Speech-to-Text** for student audio. The tables below map each piece to the modules.
 
-### Vertex LLM (Gemma / Gemini on your endpoint)
+### Gemma 4 / Vertex LLM (core reasoning)
 
-You attach whatever model your Vertex endpoint serves; the app talks to it only through `VertexEndpointClient` (`predict` / dedicated REST). The codebase also lists optional **Gemma 4** Hugging Face IDs (`google/gemma-4-26B-A4B`, `google/gemma-4-E4B`) in `teacher_pdf_pipeline.py` for **local / notebook** workflows ó production services use the **Vertex endpoint**, not those local weights by default.
+Deploy Gemma 4 (or another compatible model) on Vertex; the app calls it only through `VertexEndpointClient` (`predict` / dedicated REST). Optional **Gemma 4** Hugging Face checkpoints (`google/gemma-4-26B-A4B`, `google/gemma-4-E4B`) in `teacher_pdf_pipeline.py` support **local / notebook** workflowsùthe live FastAPI and Gradio paths expect the **Vertex endpoint** you configure in `vertex.env`.
 
-| Module | Role of the LLM |
-|--------|------------------|
-| **teacher_module** | Turn PDF sections into teacher-style explanations, structure chapters, and fill the teaching session; all generation goes through the Vertex client when an endpoint is configured. |
-| **assessment_module** | Produce strict-JSON MCQs (question, four options, answer, explanation) from cached teacher text. |
-| **ui_module** (`learn_api.py`) | Power `/textbook/chat` (contextual Q&A with source tags), refresh page explanations, and drive quiz flows that call the assessment pipeline. |
-| **voice_qa_module** | Answer spoken doubts (`answer_question`), evaluate student replies (`evaluate_student_answer`), short greeting replies, and any other `generate_text` calls in the voice loop. |
+| Module | Role of the LLM (Gemma 4) |
+|--------|---------------------------|
+| **teacher_module** | Turn PDF sections into teacher-style explanations, structure chapters, and fill the teaching session. |
+| **assessment_module** | Produce strict-JSON MCQs (four options, answer, explanation) from cached teacher text. |
+| **ui_module** (`learn_api.py`) | Power `/textbook/chat` (with source tags), refresh page explanations, orchestrate quizzes. |
+| **voice_qa_module** | Answer spoken doubts, evaluate student replies, greeting lines, and every other `generate_text` step in the voice loop. |
 
 ### Text-to-speech (TTS)
 
 | Model / stack | Where it runs | Role by module |
 |-----------------|---------------|----------------|
-| **Gemini TTS** ó `gemini-2.5-flash-preview-tts` (Vertex, `google-genai`, prebuilt voice e.g. `Kore`) | Region from `VERTEX_TTS_LOCATION` / project from `VERTEX_TTS_PROJECT` | **voice_qa_module**: `synthesize_answer()` turns tutor script into WAV for lessons, feedback, and CLI. **ui_module** Gradio (`voice_qa_page.py`): same pipeline for interactive lesson audio. **ui_module_html** (`server.py`): tutor HTTP routes synthesize lines; repeated phrases use an on-disk cache. |
-| **IndicF5** (Tamil, `configs/config.yaml` + `requirements.txt`) | Local GPU recommended | Used for Tamil reference-voice / batch TTS setups documented in config ó complementary to Gemini TTS when you run IndicF5 notebooks or extend the pipeline. |
+| **Gemini TTS** ù `gemini-2.5-flash-preview-tts` (Vertex, `google-genai`, prebuilt voice e.g. `Kore`) | Region from `VERTEX_TTS_LOCATION` / project from `VERTEX_TTS_PROJECT` | **voice_qa_module**: `synthesize_answer()` turns tutor script into WAV. **ui_module** Gradio (`voice_qa_page.py`): same for lesson audio. **ui_module_html** (`server.py`): tutor routes; static phrases cached on disk. |
+| **IndicF5** (Tamil, `configs/config.yaml` + `requirements.txt`) | Local GPU recommended | Tamil reference-voice / batch setups ù complementary when you extend the pipeline. |
 
-Configure TTS region separately from the main LLM endpoint so a Gemma deployment in any region does not break voice output (preview TTS models are not available in every region).
+Configure TTS region separately from the main LLM endpoint so moving Gemma 4 to another region does not break voice output.
 
 ### Speech-to-text (STT / ASR)
 
 | API and mode | Notes |
 |--------------|--------|
-| **Google Cloud Speech-to-Text** | `SpeechClient` against `speech.googleapis.com`. The implementation uses **batch** `recognize()` on the **full** recorded WAV after the student stops speaking ó not the **StreamingRecognize** API. WAV is read in small chunks only for format handling; transcription is a single request per utterance. |
-| **Recognition model** | Default `latest_short` in `VoiceQAPipelineConfig` ó aimed at short answers (roughly under ~60 seconds). Language codes follow Google locales (e.g. `en-US`, `ta-IN`). |
+| **Google Cloud Speech-to-Text** | `SpeechClient` uses **batch** `recognize()` on the **full** WAV after recording ù not **StreamingRecognize**. |
+| **Recognition model** | Default `latest_short` ù tuned for short student utterances (roughly under ~60 seconds). |
 
 | Module | Role of STT |
 |--------|-------------|
-| **voice_qa_module** | `transcribe_audio()` for lesson answers, ad-hoc doubts, and greeting follow-ups. |
-| **ui_module** (`voice_qa_page.py`) | Supplies microphone audio (browser-recorded WAV) into the same pipeline via `run_lesson_step`. |
-| **ui_module_html** (`server.py`) | Normalizes uploads (e.g. WebM) to mono 16 kHz LINEAR16 when possible, then transcription uses the shared pipeline. |
+| **voice_qa_module** | `transcribe_audio()` for answers, doubts, greetings. |
+| **ui_module** (`voice_qa_page.py`) | Browser-captured audio into `run_lesson_step`. |
+| **ui_module_html** (`server.py`) | Normalize uploads, then same transcription path. |
 
-**ìStreamingî in the UI:** The **browser** may stream samples from the microphone and stop after silence; that is **client-side** capture logic. **Server-side**, the stack uses **one-shot** Cloud Speech recognition per clip, not streaming STT.
+**ùStreamingù in the UI:** the **browser** may capture audio with silence detection; **server-side** recognition is one-shot per clip, not streaming STT.
 
 ---
 
@@ -143,8 +165,8 @@ Tutor/
 | **Boards** | CBSE, ICSE / ISC, Tamil Nadu, Maharashtra, Karnataka, Kerala, Andhra Pradesh, Telangana, West Bengal, Rajasthan, UP, Gujarat, Bihar, and any other board |
 | **Subjects** | Physics, Chemistry, Mathematics, Biology, Social Science, and any subject with a PDF textbook |
 | **Languages (UI & text)** | English, Tamil, Hindi, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Odia, Punjabi, Assamese, Urdu, Sanskrit |
-| **Languages (voice ASR)** | English (en-US), Tamil (ta-IN) ù additional Google Cloud Speech locales can be added |
-| **Languages (TTS)** | English (Gemini TTS), Tamil (IndicF5) ù mix modes available |
+| **Languages (voice ASR)** | English (en-US), Tamil (ta-IN); additional Google Cloud Speech locales can be added |
+| **Languages (TTS)** | English (Gemini TTS), Tamil (IndicF5); mix modes available |
 
 ---
 
@@ -153,7 +175,7 @@ Tutor/
 - Python 3.10+
 - A GCP project with:
   - **Vertex AI** API enabled
-  - A deployed **online prediction endpoint** serving a Gemma or Gemini model
+  - A deployed **online prediction endpoint** (recommended: **Gemma 4** or compatible Gemma/Gemini)
   - **Google Cloud Speech-to-Text API** enabled
   - **Application Default Credentials (ADC)** set up:
     ```bash
@@ -280,7 +302,7 @@ All credentials and paths are injected via environment variables sourced from `c
 
 ## Notes
 
-- **Pre-populate the teacher cache** ù run the pipeline against your PDF once before first use. This stores AI-generated explanations in `modules/teacher_module/outputs/` so pages load instantly without calling the LLM every time.
+- **Pre-populate the teacher cache** ù run the pipeline against your PDF once before first use. This stores AI-generated explanations in `modules/teacher_module/outputs/` so pages load faster without calling the LLM every time.
 - **Tamil TTS (IndicF5)** downloads model weights (~2 GB) on first run to `model_cache/`. An internet connection is required on first startup.
 - **English TTS** uses `gemini-2.5-flash-preview-tts` via Vertex AI. Ensure this model is available in your `VERTEX_TTS_LOCATION`.
 - **Adding more languages** ù the ASR language code (e.g. `hi-IN` for Hindi) can be passed per session. TTS for additional languages can be integrated by extending `voice_qa_pipeline.py`.
